@@ -1,0 +1,46 @@
+import random
+import csv
+
+def generate_emails(num_emails=2000):
+    categories = ["spam", "ham"]
+    spam_phrases = [
+        "Congratulations, you've won a free gift!", 
+        "Click here to claim your prize now.", 
+        "Limited time offer: Save 50% on all items!", 
+        "Act fast! This offer won't last long.",
+        "Dear customer, your account is at risk. Verify immediately.",
+        "You've been selected for a chance to win $1,000."
+    ]
+    ham_phrases = [
+        "Meeting rescheduled to tomorrow at 10 AM.", 
+        "Can we review the project updates before lunch?",
+        "Invoice #12345 is attached for your reference.",
+        "Lunch plans tomorrow? Let's meet at 1 PM.",
+        "Please find the attached document for your review.",
+        "Quick reminder: Team meeting scheduled for today at 3 PM."
+    ]
+
+    mixed_phrases = [
+        "Click here to review the meeting agenda.",  # Ham görünümlü spam
+        "Your invoice is overdue, act fast to avoid penalties.",  # Spam görünümlü ham
+        "Win a free lunch at your favorite restaurant.",  # Karma spam
+        "Reminder: Don't miss our limited-time meeting.",  # Karışık
+        "Your account needs immediate verification to continue."  # Ham ama spam'e benzer
+    ]
+
+    emails = []
+    for _ in range(num_emails):
+        label = random.choice(categories)
+        if label == "spam":
+            content = random.choice(spam_phrases + mixed_phrases)
+        else:
+            content = random.choice(ham_phrases + mixed_phrases)
+        emails.append({"email": content, "label": label})
+
+    with open("data/emails.csv", "w", newline="", encoding="utf-8") as csvfile:
+        writer = csv.DictWriter(csvfile, fieldnames=["email", "label"])
+        writer.writeheader()
+        writer.writerows(emails)
+
+if __name__ == "__main__":
+    generate_emails()
