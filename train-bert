@@ -1,0 +1,90 @@
+import torch
+from transformers import BertTokenizer, BertForSequenceClassification, AdamW
+from torch.utils.data import Dataset, DataLoader
+from preprocessing.preprocess import load_and_preprocess_data
+from sklearn.metrics import classification_report
+
+# GPU kontrolü
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+class EmailDataset(Dataset):
+    def __init__(self, texts, labels, tokenizer, max_len=128):
+        self.texts = texts
+        self.labels = labels
+        self.tokenizer = tokenizer
+        self.max_len = max_len
+
+    def __len__(self):
+        return len(self.texts)
+
+    def __getitem__(self, idx):
+        text = self.texts.iloc[idx]
+        label = 1 if self.labels.iloc[idx] == "spam" else 0
+        encoding = self.tokenizer.encode_plus(
+            text,
+            add_special_tokens=True,
+            max_length=self.max_len,
+            padding="max_length",
+            truncation=True,
+            return_tensors="pt"
+        )
+        return {
+            "input_ids": encoding["input_ids"].squeeze(0),
+            "attention_mask": encoding["attention_mask"].squeeze(0),
+            "label": torch.tensor(label, dtype=torch.long)
+        }
+
+def train_bert():
+    # Veriyi yükle
+    X_train, X_test, y_train, y_test = load_and_preprocess_data("data/emails.csv")
+
+    # Tokenizer ve model
+    tokenizer = BertTokenizer.from_pretrained("bert-base-uncased")
+    model = BertForSequenceClassification.from_pretrained("bert-base-uncased", num_labels=2)
+    model.to(device)
+
+    # Dataset ve DataLoader
+    train_dataset = EmailDataset(X_train, y_train, tokenizer)
+    train_loader = DataLoader(train_dataset, batch_size=16, shuffle=True)
+
+    # Optimizer
+    optimizer = AdamW(model.parameters(), lr=5e-5)
+
+    # Eğitim
+    model.train()
+    for epoch in range(3):  # Epoch sayısı 3 olarak ayarlandı
+        for batch in train_loader:
+            input_ids = batch["input_ids"].to(device)
+            attention_mask = batch["attention_mask"].to(device)
+            labels = batch["label"].to(device)
+
+            optimizer.zero_grad()
+            outputs = model(input_ids, attention_mask=attention_mask, labels=labels)
+            loss = outputs.loss
+            loss.backward()
+            optimizer.step()
+
+        print(f"Epoch {epoch + 1} completed")
+
+    # Test ve değerlendirme
+    test_dataset = EmailDataset(X_test, y_test, tokenizer)
+    test_loader = DataLoader(test_dataset, batch_size=16)
+
+    model.eval()
+    predictions, true_labels = [], []
+    with torch.no_grad():
+        for batch in test_loader:
+            input_ids = batch["input_ids"].to(device)
+            attention_mask = batch["attention_mask"].to(device)
+            labels = batch["label"].to(device)
+
+            outputs = model(input_ids, attention_mask=attention_mask)
+            preds = torch.argmax(outputs.logits, dim=1)
+            predictions.extend(preds.cpu().numpy())
+            true_labels.extend(labels.cpu().numpy())
+
+    print("BERT Classification Report")
+    print(classification_report(true_labels, predictions))
+
+if __name__ == "__main__":
+    train_bert()
