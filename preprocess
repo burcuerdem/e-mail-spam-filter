@@ -1,0 +1,30 @@
+import pandas as pd
+import re
+from sklearn.model_selection import train_test_split, KFold
+from sklearn.feature_extraction.text import ENGLISH_STOP_WORDS
+
+def clean_text(text):
+    text = text.lower()  # Küçük harfe çevir
+    text = re.sub(r"http\S+", "", text)  # URL'leri kaldır
+    text = re.sub(r"[^\w\s]", "", text)  # Noktalama işaretlerini kaldır
+    text = " ".join([word for word in text.split() if word not in ENGLISH_STOP_WORDS])  # Stopword temizliği
+    return text
+
+def load_and_preprocess_data(filepath):
+    data = pd.read_csv(filepath)
+    data["email"] = data["email"].apply(clean_text)
+    X = data["email"]
+    y = data["label"]
+    return train_test_split(X, y, test_size=0.2, random_state=42)
+
+def kfold_data(filepath, k=5):
+    data = pd.read_csv(filepath)
+    data["email"] = data["email"].apply(clean_text)
+    X = data["email"].values
+    y = data["label"].values
+    kf = KFold(n_splits=k, shuffle=True, random_state=42)
+    return kf.split(X, y), X, y
+
+if __name__ == "__main__":
+    X_train, X_test, y_train, y_test = load_and_preprocess_data("data/emails.csv")
+    print("Data Preprocessing Completed")
